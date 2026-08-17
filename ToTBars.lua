@@ -43,17 +43,18 @@ local ToTAllContainers = {} -- flat list, just for a hard cleanup on init
 -- Helpers
 ------------------------------------------------------------
 
--- Plater passed its own plate frame in as "self". Without Plater we get the
--- unit token from NAME_PLATE_UNIT_ADDED and look the plate up ourselves, then
--- anchor to the healthbar if the default Blizzard nameplate layout exposes
--- one, otherwise fall back to the UnitFrame, otherwise the plate itself.
+-- IMPORTANT: plate.UnitFrame (and plate.UnitFrame.healthBar) is a protected/
+-- secure Button - it has unit attributes bound to it for Blizzard's combat
+-- targeting system. Anchoring an insecure frame to it taints the whole call,
+-- which then breaks unrelated insecure operations later in the same stack
+-- (this is why SetText was throwing "Font not set" - SetFont got skipped
+-- because the taint interrupted execution before it ran).
+--
+-- The top-level plate frame itself (what NAME_PLATE_UNIT_ADDED /
+-- C_NamePlate.GetNamePlateForUnit hands back) is NOT protected - only the
+-- unit-bound Button child is. Anchor to that instead, same as the original
+-- Plater version did with "self".
 local function GetAnchorFrame(plate)
-    if plate.UnitFrame then
-        if plate.UnitFrame.healthBar then
-            return plate.UnitFrame.healthBar
-        end
-        return plate.UnitFrame
-    end
     return plate
 end
 
