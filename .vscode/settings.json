@@ -19,6 +19,7 @@
         "UIParent",
         "STANDARD_TEXT_FONT",
         "WorldFrame",
-        "RAID_CLASS_COLORS"
+        "RAID_CLASS_COLORS",
+        "Settings"
     ]
 }

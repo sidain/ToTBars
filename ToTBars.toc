@@ -7,3 +7,4 @@
 
 ToTTracker.lua
 ToTBars.lua
+ToTBarsOptions.lua

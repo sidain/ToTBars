@@ -4,7 +4,7 @@
 -- Destructor / Mod Option Changed / Initialization) with native nameplate events
 -- and a SavedVariables config, driven by ToTTracker.lua's data tables.
 
-local ADDON_NAME = ...
+local ADDON_NAME, ns = ...
 
 ------------------------------------------------------------
 -- Config (was modTable.config / the Plater options panel)
@@ -21,9 +21,18 @@ local DEFAULTS = {
     PET_Y_OFFSET = -100,
     PET_SCALE    = 0.9,
     TEST         = false,
+    -- Extra nudge applied to the nameplate that is your current target OR
+    -- your current soft-target (the auto-target-what's-in-front-of-you
+    -- reticle), on top of X_OFFSET/Y_OFFSET. Blizzard's target-glow
+    -- highlight can shift the plate's effective bottom edge slightly vs.
+    -- non-targeted plates, so this lets that one case be corrected
+    -- independently.
+    TARGET_X_OFFSET = 0,
+    TARGET_Y_OFFSET = 0,
 }
 
 ToTBarsDB = ToTBarsDB or {}
+ns.DEFAULTS = DEFAULTS -- shared with ToTBarsOptions.lua for the options panel
 
 local function InitDB()
     for k, v in pairs(DEFAULTS) do
@@ -62,9 +71,26 @@ local function ApplyPosition(t)
     local cfg = ToTBarsDB
     local ox  = cfg.X_OFFSET
     local oy  = cfg.Y_OFFSET
-    local oy2 = t.isPet and (oy + cfg.PET_Y_OFFSET) or oy
+    if t.isPet then
+        oy = oy + cfg.PET_Y_OFFSET
+    end
+    -- "target" only reflects your actual hard target. WoW's soft-targeting
+    -- (auto-targeting whatever you're facing, before you commit to it)
+    -- uses separate unit tokens - softenemy/softfriend/softinteract - so it
+    -- has to be checked independently or the target offset never applies
+    -- to whatever the reticle is currently highlighting.
+    local isFocused = t.unitId and (
+        UnitIsUnit(t.unitId, "target")
+        or UnitIsUnit(t.unitId, "softenemy")
+        or UnitIsUnit(t.unitId, "softfriend")
+        or UnitIsUnit(t.unitId, "softinteract")
+    )
+    if isFocused then
+        ox = ox + (cfg.TARGET_X_OFFSET or 0)
+        oy = oy + (cfg.TARGET_Y_OFFSET or 0)
+    end
     t.container:ClearAllPoints()
-    t.container:SetPoint("TOP", t.anchor, "BOTTOM", ox, oy2)
+    t.container:SetPoint("TOP", t.anchor, "BOTTOM", ox, oy)
 end
 
 local function ApplySize(t)
@@ -144,7 +170,12 @@ local function CreateBar(unitId, plate)
     bRight:SetPoint("BOTTOMRIGHT", hpBarAnchor, "BOTTOMRIGHT", 1, -1)
     bRight:SetWidth(1)
 
-    local nameText = container:CreateFontString(nil, "OVERLAY")
+    -- Inherit a default font object immediately so the FontString is never
+    -- "fontless" - a fresh CreateFontString has no font until SetFont/
+    -- SetFontObject is called, and calling SetText before that throws
+    -- "Font not set". ApplySize() below overrides this with the configured
+    -- size once it runs.
+    local nameText = container:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     nameText:SetJustifyH("LEFT")
     nameText:SetWordWrap(false)
     nameText:SetText("")
@@ -173,6 +204,7 @@ local function CreateBar(unitId, plate)
         bTop = bTop, bBot = bBot, bLeft = bLeft, bRight = bRight,
         isPet       = isPet,
         anchor      = GetAnchorFrame(plate),
+        unitId      = unitId,
         active      = true,
         lastHpBar   = nil,
     }
@@ -202,6 +234,10 @@ local function CreateBar(unitId, plate)
             elapsed = elapsed + dt
             if elapsed < 0.1 then return end
             elapsed = 0
+
+            -- Re-apply position each tick so the target-specific offset
+            -- tracks PLAYER_TARGET_CHANGED without a dedicated event.
+            ApplyPosition(t)
 
             local cfg = ToTBarsDB
             local totName = nil
@@ -332,6 +368,7 @@ local function ApplyConfigToAll()
         ApplyPosition(t)
     end
 end
+ns.ApplyConfigToAll = ApplyConfigToAll -- shared with ToTBarsOptions.lua
 
 ------------------------------------------------------------
 -- Events (replaces Plater's Nameplate Added/Updated + Initialization)
