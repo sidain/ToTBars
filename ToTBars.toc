@@ -1,0 +1,9 @@
+## Interface: 120001
+## Title: ToTBars
+## Notes: Standalone target-of-target nameplate bars (no Plater required)
+## Author: You
+## Version: 1.0
+## SavedVariables: ToTBarsDB
+
+ToTTracker.lua
+ToTBars.lua
