@@ -55,10 +55,18 @@ local function BuildPanel()
     end)
 
     local anchor = testCheck
+    local firstRow = true
     for _, field in ipairs(FIELDS) do
         local label = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        label:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 2, -18)
+        -- Only the first row nudges +2 to line up under the checkbox text;
+        -- every row after that anchors with a ZERO x offset to the row
+        -- above so the left edge stays fixed instead of drifting further
+        -- right each iteration (that +2-every-time was the recursive
+        -- indent bug).
+        local xOffset = firstRow and 2 or 0
+        label:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", xOffset, -18)
         label:SetText(field.label)
+        firstRow = false
 
         local edit = CreateFrame("EditBox", nil, panel, "InputBoxTemplate")
         edit:SetSize(80, 20)
