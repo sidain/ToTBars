@@ -21,6 +21,49 @@ local FIELDS = {
     { key = "TARGET_Y_OFFSET", label = "Target/Soft-Target Y Offset" },
 }
 
+local LIGHTEN_OPTIONS = {
+    { text = "0%",  value = 0 },
+    { text = "25%", value = 0.25 },
+    { text = "50%", value = 0.5 },
+    { text = "75%", value = 0.75 },
+}
+
+-- There's no Blizzard API exposing a general font-family picker to addons.
+-- These are font files that ship with every client and are always safe to
+-- reference by path.
+local FONT_OPTIONS = {
+    { text = "Friz Quadrata (Default)", value = "Fonts\\FRIZQT__.TTF" },
+    { text = "Arial Narrow",            value = "Fonts\\ARIALN.TTF" },
+    { text = "Skurri",                  value = "Fonts\\SKURRI.TTF" },
+    { text = "Morpheus",                value = "Fonts\\MORPHEUS.TTF" },
+}
+
+local function FindLabel(options, value)
+    for _, opt in ipairs(options) do
+        if opt.value == value then
+            return opt.text
+        end
+    end
+    return options[1].text
+end
+
+local function InitDropdown(dd, options, getCurrent, onSelect)
+    UIDropDownMenu_Initialize(dd, function(self, level)
+        for _, opt in ipairs(options) do
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = opt.text
+            info.value = opt.value
+            info.checked = (getCurrent() == opt.value)
+            info.func = function()
+                onSelect(opt.value)
+                UIDropDownMenu_SetSelectedValue(dd, opt.value)
+                UIDropDownMenu_SetText(dd, opt.text)
+            end
+            UIDropDownMenu_AddButton(info, level)
+        end
+    end)
+end
+
 local panel = CreateFrame("Frame")
 panel.name = "ToTBars"
 
@@ -28,6 +71,7 @@ local registeredCategory
 
 local editBoxes = {}
 local testCheck
+local lightenDropdown
 
 local function ApplyAll()
     if ns.ApplyConfigToAll then
@@ -93,9 +137,33 @@ local function BuildPanel()
         anchor = label
     end
 
+    do
+        local label = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        label:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -18)
+        label:SetText("Name Color Lighten")
+
+        lightenDropdown = CreateFrame("Frame", "ToTBarsLightenDropdown", panel, "UIDropDownMenuTemplate")
+        UIDropDownMenu_SetWidth(lightenDropdown, 90)
+        -- UIDropDownMenuTemplate frames carry built-in left padding for
+        -- their button art, so anchor from LEFT rather than TOPLEFT like
+        -- the plain fontstring labels.
+        lightenDropdown:SetPoint("LEFT", label, "RIGHT", 0, -2)
+        InitDropdown(lightenDropdown, LIGHTEN_OPTIONS,
+            function() return ToTBarsDB.CLASS_COLOR_LIGHTEN end,
+            function(value)
+                ToTBarsDB.CLASS_COLOR_LIGHTEN = value
+                ApplyAll()
+            end)
+        UIDropDownMenu_SetText(lightenDropdown, FindLabel(LIGHTEN_OPTIONS, ToTBarsDB.CLASS_COLOR_LIGHTEN))
+
+        -- Keep resetBtn anchored to the label (not the wider dropdown
+        -- frame) so the left margin stays consistent with the rows above.
+        anchor = label
+    end
+
     local resetBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     resetBtn:SetSize(140, 22)
-    resetBtn:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -2, -22)
+    resetBtn:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", -2, -34)
     resetBtn:SetText("Reset to Defaults")
     resetBtn:SetScript("OnClick", function()
         for k, v in pairs(ns.DEFAULTS) do
@@ -105,6 +173,7 @@ local function BuildPanel()
         for _, field in ipairs(FIELDS) do
             editBoxes[field.key]:SetText(tostring(ToTBarsDB[field.key]))
         end
+        UIDropDownMenu_SetText(lightenDropdown, FindLabel(LIGHTEN_OPTIONS, ToTBarsDB.CLASS_COLOR_LIGHTEN))
         ApplyAll()
     end)
 end
@@ -119,6 +188,9 @@ panel:SetScript("OnShow", function(self)
     -- the panel was last open.
     if testCheck then
         testCheck:SetChecked(ToTBarsDB.TEST)
+    end
+    if lightenDropdown then
+        UIDropDownMenu_SetText(lightenDropdown, FindLabel(LIGHTEN_OPTIONS, ToTBarsDB.CLASS_COLOR_LIGHTEN))
     end
     for _, field in ipairs(FIELDS) do
         local edit = editBoxes[field.key]
@@ -160,7 +232,7 @@ local function OpenPanel()
     end
 end
 
-SLASH_TOTBARSCONFIG1 = "/totb"
+SLASH_TOTBARSCONFIG1 = "/tot"
 SlashCmdList["TOTBARSCONFIG"] = OpenPanel
 
 local loader = CreateFrame("Frame")

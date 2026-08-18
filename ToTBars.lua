@@ -29,6 +29,15 @@ local DEFAULTS = {
     -- independently.
     TARGET_X_OFFSET = 0,
     TARGET_Y_OFFSET = 0,
+    -- Lightens the class-colored name text only (not the HP bar) toward
+    -- white. 0 = full class color, 0.75 = blended 75% of the way to white.
+    -- Exposed as a 0%/25%/50%/75% dropdown in the options panel.
+    CLASS_COLOR_LIGHTEN = 0,
+    -- One of the client's built-in font files (see FONT_OPTIONS in
+    -- ToTBarsOptions.lua). There's no Blizzard-exposed API for a general
+    -- font-family picker, so this is limited to fonts that ship with the
+    -- game and are always safe to reference by path.
+    FONT_PATH = "Fonts\\FRIZQT__.TTF",
 }
 
 ToTBarsDB = ToTBarsDB or {}
@@ -106,7 +115,7 @@ local function ApplySize(t)
     t.hpBarAnchor:SetSize(bw2, bh2)
     t.threatBar:SetSize(bw2, th2)
     t.nameText:SetWidth(math.min(bw2 - 20, cfg.TEXT_CLIP))
-    t.nameText:SetFont(STANDARD_TEXT_FONT, ts2, "OUTLINE")
+    t.nameText:SetFont(cfg.FONT_PATH or STANDARD_TEXT_FONT, ts2, "OUTLINE")
     t.hpBarAnchor:ClearAllPoints()
     t.hpBarAnchor:SetPoint("TOPLEFT", t.container, "TOPLEFT", 0, 0)
     t.nameText:ClearAllPoints()
@@ -122,6 +131,13 @@ local function SetBorder(t, r, g, b, a)
     t.bBot:SetColorTexture(r, g, b, a)
     t.bLeft:SetColorTexture(r, g, b, a)
     t.bRight:SetColorTexture(r, g, b, a)
+end
+
+-- Blends a class color toward white by pct (0 = unchanged, 1 = pure white).
+local function LightenColor(r, g, b, pct)
+    pct = pct or 0
+    if pct <= 0 then return r, g, b end
+    return r + (1 - r) * pct, g + (1 - g) * pct, b + (1 - b) * pct
 end
 
 ------------------------------------------------------------
@@ -294,7 +310,8 @@ local function CreateBar(unitId, plate)
                     if class and class ~= "" then
                         local color = RAID_CLASS_COLORS[class]
                         if color then
-                            nameText:SetTextColor(color.r, color.g, color.b)
+                            local r, g, b = LightenColor(color.r, color.g, color.b, cfg.CLASS_COLOR_LIGHTEN)
+                            nameText:SetTextColor(r, g, b)
                         else
                             nameText:SetTextColor(1, 1, 1)
                         end
